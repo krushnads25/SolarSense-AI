@@ -35,7 +35,7 @@ document.getElementById("solarForm")
     };
 
     await fetch(
-        "https://n8n-production-c14f.up.railway.app/webhook/solarsense",
+        "https://solarsense-ai-production-5a21.up.railway.app/webhook/solarsense",
         {
             method: "POST",
             headers: {
