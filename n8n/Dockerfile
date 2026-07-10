@@ -2,9 +2,9 @@ FROM n8nio/n8n:1.99.1
 
 USER root
 
-RUN mkdir -p /data/.n8n && \
-    chown -R node:node /data
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 ENV N8N_USER_FOLDER=/data/.n8n
 
-USER node
+ENTRYPOINT ["/docker-entrypoint.sh"]
