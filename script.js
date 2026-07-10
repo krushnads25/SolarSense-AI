@@ -34,7 +34,16 @@ document.getElementById("solarForm")
         bill: document.getElementById("bill").value
     };
 
-    console.log(payload);
+    await fetch(
+        "https://n8n-production-c14f.up.railway.app/webhook/solarsense",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        }
+    );
 
     alert("Solar report request submitted successfully!");
 
