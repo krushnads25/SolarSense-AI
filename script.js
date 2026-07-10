@@ -33,8 +33,7 @@ document.getElementById("solarForm")
         roofArea: roofAreaText.innerText,
         bill: document.getElementById("bill").value
     };
-
-    await fetch(
+    const response = await fetch(
         "https://solarsense-ai-production-5a21.up.railway.app/webhook/solarsense",
         {
             method: "POST",
@@ -45,10 +44,12 @@ document.getElementById("solarForm")
         }
     );
 
-    alert("Solar report request submitted successfully!");
+    const result = await response.text();
 
-    /*
-    Replace with your n8n webhook later
+    console.log("n8n response:", result);
+
+    alert(result);
+   /* Replace with your n8n webhook later
 
     await fetch("YOUR_N8N_WEBHOOK_URL",{
         method:"POST",
