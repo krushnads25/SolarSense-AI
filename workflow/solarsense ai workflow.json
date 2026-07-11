@@ -1,0 +1,594 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "solarsense",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "919f1da0-0d94-44e4-87fc-24a1f6066d20",
+      "name": "Webhook",
+      "webhookId": "41088261-6ca8-4e57-b528-85acea182509"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('AI Agent').item.json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1620,
+        0
+      ],
+      "id": "e91b4216-420c-4f00-84c0-4133a6630bb4",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert rooftop solar recommendation assistant for India.\n\nUsing the following inputs:\n\n- Pincode: {{ $json.body.pincode }}\n- Roof Area (sq ft): {{ $json.body.roofArea }}\n- Monthly Electricity Bill (₹): {{ $json.body.bill }}\n\nUse the following fixed assumptions:\n\n- ₹60,000 per kW installation cost\n- 90 sq.ft per kW\n- 150 units generation per kW per month\n- ₹10/unit tariff\n- 540W panel size\n\nPerform the following calculations:\n\n1. Calculate the ideal solar system size required to offset the customer's electricity consumption.\nStore this as:\nrequiredKW\n\n2. Calculate the maximum solar capacity that can be installed on the available roof area.\nAssume that approximately 90 sq.ft of roof area is required per kW of solar capacity.\nStore this as:\nmaximumRoofKW\n\n3. Compare both values:\nIMPORTANT:\n- remainingRoofArea must never be negative.\n- If recommendedKW equals maximumRoofKW then remainingRoofArea must be 0.\n-recommendedKW must NEVER exceed maximumRoofKW.\n\n- If maximumRoofKW >= requiredKW:\n    - recommendedKW = requiredKW\n    - consumptionCoverage = 100\n    - isRoofConstrained = false\n\n- If maximumRoofKW < requiredKW:\n    - recommendedKW = maximumRoofKW\n    - consumptionCoverage = (recommendedKW / requiredKW) × 100\n    - isRoofConstrained = true\n    - roofAreaUsed = total available roof area\nUnder no circumstances should remainingRoofArea become negative.\n\n4. Based on recommendedKW calculate:\n- panelCount\n- monthlyGeneration\n- monthlySavings\n- systemCost\n- paybackPeriod\n- roofAreaUsed\n- remainingRoofArea\n\n5. Generate a recommendation:\n- If the roof is sufficient, explain that the recommendation fully covers current consumption and that additional roof area remains available for future expansion.\n- If the roof is insufficient, explain that the user's electricity consumption requires a larger system but the roof can only accommodate a smaller one, and provide the expected percentage of consumption coverage.\n\nIMPORTANT RULES:\n\n1. Return ONLY the structured output requested by the output parser.\n2. Do NOT include explanations outside the output schema.\n3. Do NOT use markdown.\n4. Do NOT use code blocks.\n5. Do NOT return plain text before or after the response.\n6. Use realistic Indian solar pricing and generation estimates.\n7. Use realistic Indian residential electricity tariffs.\n8. Assume approximately 550-650 monthly units generated per kW installed depending on location.\n9. Monthly savings should never exceed the customer's current monthly electricity bill unless explicitly explained through net metering exports.\n10. Based on the provided pincode, recommend 3 nearby solar installation companies or authorized partners operating in or near the user's region.\n\n11. Prefer well-known Indian solar companies.\n12. Include local authorized partners when appropriate.\n13. Return the installers in the installers array using the schema provided.\n14. For each installer provide:\n- Company name\n- Full address\n- Contact number (if reasonably known)\n- Website (if reasonably known)\n\n15. If exact contact details are uncertain, provide the company website and nearest city instead of fabricating phone numbers or addresses.\n\nReturn only the structured output requested by the output parser.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "d33cb4e6-3fc1-44b9-90c3-db6c312b2720",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        200,
+        220
+      ],
+      "id": "7553aa6b-4674-409a-80fd-d40f74b65c0a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "jMDNWJbz7Ipelqy2",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"requiredKW\": {\n      \"type\": \"number\",\n      \"description\": \"Ideal solar capacity required to offset the user's current electricity consumption.\"\n    },\n    \"maximumRoofKW\": {\n      \"type\": \"number\",\n      \"description\": \"Maximum solar capacity that can be installed on the available roof area.\"\n    },\n    \"recommendedKW\": {\n      \"type\": \"number\",\n      \"description\": \"Final recommended solar system capacity after considering both electricity consumption and roof constraints.\"\n    },\n    \"isRoofConstrained\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if the roof area cannot accommodate the ideal required system size.\"\n    },\n    \"consumptionCoverage\": {\n      \"type\": \"number\",\n      \"description\": \"Percentage of the user's electricity consumption that can be offset by the recommended system.\"\n    },\n    \"panelCount\": {\n      \"type\": \"integer\",\n      \"description\": \"Estimated number of solar panels required.\"\n    },\n    \"monthlyGeneration\": {\n      \"type\": \"number\",\n      \"description\": \"Estimated monthly electricity generation in kWh.\"\n    },\n    \"monthlySavings\": {\n      \"type\": \"number\",\n      \"description\": \"Estimated monthly savings in Indian Rupees.\"\n    },\n    \"systemCost\": {\n      \"type\": \"number\",\n      \"description\": \"Estimated total installation cost in Indian Rupees.\"\n    },\n    \"paybackPeriod\": {\n      \"type\": \"number\",\n      \"description\": \"Estimated payback period in years.\"\n    },\n    \"roofAreaUsed\": {\n      \"type\": \"number\",\n      \"description\": \"Estimated roof area required for the recommended solar installation in square feet.\"\n    },\n    \"remainingRoofArea\": {\n      \"type\": \"number\",\n      \"description\": \"Unused roof area remaining after installation in square feet.\"\n    },\n    \"recommendation\": {\n      \"type\": \"string\",\n      \"description\": \"AI-generated recommendation explaining the decision and any roof constraints.\"\n    },\n    \"installers\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"address\": {\n            \"type\": \"string\"\n          },\n          \"phone\": {\n            \"type\": \"string\"\n          },\n          \"website\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"name\",\n          \"address\",\n          \"website\"\n        ]\n      }\n    }\n  },\n  \"required\": [\n    \"requiredKW\",\n    \"maximumRoofKW\",\n    \"recommendedKW\",\n    \"isRoofConstrained\",\n    \"consumptionCoverage\",\n    \"panelCount\",\n    \"monthlyGeneration\",\n    \"monthlySavings\",\n    \"systemCost\",\n    \"paybackPeriod\",\n    \"roofAreaUsed\",\n    \"remainingRoofArea\",\n    \"recommendation\",\n    \"installers\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        220
+      ],
+      "id": "8d2f4061-229c-4245-802d-15757cebe1af",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "html": "<html>\n<head>\n<style>\nbody{\n    font-family: Arial, sans-serif;\n    padding:40px;\n    color:#333;\n}\n\nh1{\n    color:#1E3A5F;\n    text-align:center;\n}\n\nh2{\n    color:#1E3A5F;\n    border-bottom:2px solid #1E3A5F;\n    padding-bottom:5px;\n}\n\ntable{\n    width:100%;\n    border-collapse:collapse;\n    margin-bottom:25px;\n}\n\ntd,th{\n    border:1px solid #ddd;\n    padding:10px;\n}\n\nth{\n    background:#f5f5f5;\n    text-align:left;\n}\n\n.footer{\n    margin-top:40px;\n    font-size:12px;\n    color:#666;\n}\n</style>\n</head>\n\n<body>\n\n<h1>SolarSense AI</h1>\n<h3 style=\"text-align:center;\">\nPersonalized Rooftop Solar Assessment Report\n</h3>\n\n<h2>Customer Details</h2>\n\n<table>\n<tr><th>Name</th><td>{{ $('Webhook').item.json.body.name }}</td></tr>\n<tr><th>Email</th><td>{{ $('Webhook').item.json.body.email }}</td></tr>\n<tr><th>PIN Code</th><td>{{ $('Webhook').item.json.body.pincode }}</td></tr>\n<tr><th>Roof Area</th><td>{{ $('Webhook').item.json.body.roofArea }} sq.ft</td></tr>\n<tr><th>Monthly Bill</th><td>₹{{ $('Webhook').item.json.body.bill }}</td></tr>\n</table>\n\n<h2>Solar Recommendation</h2>\n\n<table>\n<tr><th>Recommended Capacity</th><td>{{ $json.output.recommendedKW }} kW</td></tr>\n<tr><th>Panels Required</th><td>{{ $json.output.panelCount }}</td></tr>\n<tr><th>Monthly Generation</th><td>{{ $json.output.monthlyGeneration }} kWh</td></tr>\n<tr><th>Monthly Savings</th><td>₹{{ $json.output.monthlySavings }}</td></tr>\n<tr><th>System Cost</th><td>₹{{ $json.output.systemCost }}</td></tr>\n<tr><th>Payback Period</th><td>{{ $json.output.paybackPeriod }} years</td></tr>\n</table>\n\n<h2>AI Recommendation</h2>\n\n<p>\n{{ $json.output.recommendation }}\n</p>\n\n<div class=\"footer\">\nGenerated by SolarSense AI<br>\nAgentic Solar Installation Advisor\n</div>\n\n</body>\n</html>"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        780,
+        0
+      ],
+      "id": "24df27e4-6bf0-4603-b3cb-153fbcf5389f",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfmonkey.io/api/v1/documents",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 2Twh3GMsp3K4ioCcHtyz4xffVq__rdxP"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"document\": {\n    \"document_template_id\": \"BAD2AA51-5214-4A5A-A21D-D7BE0DB45A0C\",\n    \"status\": \"pending\",\n    \"payload\": {\n      \"name\": \"{{ $('Webhook').item.json.body.name }}\",\n      \"email\": \"{{ $('Webhook').item.json.body.email }}\",\n      \"pincode\": \"{{ $('Webhook').item.json.body.pincode }}\",\n      \"roofArea\": \"{{ $('Webhook').item.json.body.roofArea }}\",\n      \"bill\": \"{{ $('Webhook').item.json.body.bill }}\",\n      \"recommendedKW\": {{ $('AI Agent').item.json.output.recommendedKW }},\n      \"panelCount\": {{ $('AI Agent').item.json.output.panelCount }},\n      \"monthlyGeneration\": {{ $('AI Agent').item.json.output.monthlyGeneration }},\n      \"monthlySavings\": {{ $('AI Agent').item.json.output.monthlySavings }},\n      \"systemCost\": {{ $('AI Agent').item.json.output.systemCost }},\n      \"paybackPeriod\": {{ $('AI Agent').item.json.output.paybackPeriod }},\n      \"recommendation\": \"{{ $('AI Agent').item.json.output.recommendation }}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        0
+      ],
+      "id": "422a951d-8640-49d2-b66e-a59ac11bea46",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.pdfmonkey.io/api/v1/documents/{{ $json.document.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 2Twh3GMsp3K4ioCcHtyz4xffVq__rdxP"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "1b55e3cb-5c3a-4917-b685-c26ccee75aa0",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.document.download_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        0
+      ],
+      "id": "63c5de3f-18fb-44a9-9bed-70398a775b30",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "☀️ Your SolarSense AI Report is Ready",
+        "message": "=<h2>SolarSense AI Report</h2>  <p>Hello {{ $('Webhook').item.json.body.name }},</p>  <p>Your personalized rooftop solar assessment report has been generated successfully.</p>  <h3>Summary</h3>  <ul> <li><b>Recommended Capacity:</b> {{ $('AI Agent').item.json.output.recommendedKW }} kW</li> <li><b>Estimated Monthly Savings:</b> ₹{{ $('AI Agent').item.json.output.monthlySavings }}</li> <li><b>Estimated Payback Period:</b> {{ $('AI Agent').item.json.output.paybackPeriod }} years</li> </ul>  <p>Please find your detailed report attached with this email.</p>  <p>Thank you for using SolarSense AI.</p>  <p> Regards,<br> SolarSense AI Team </p>",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1480,
+        0
+      ],
+      "id": "67d0a23c-d4ae-42b0-886b-4be16ace964f",
+      "name": "Send a message",
+      "webhookId": "ac4ca83f-6d45-4184-9947-140819d2433b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g28IJPscxWwwbyFY",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        0
+      ],
+      "id": "90aa6c73-7b48-4515-ba6e-4599c1e22d36",
+      "name": "Wait",
+      "webhookId": "487ecbd2-8607-4bd5-b3c3-afb175725cd4"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "11zEsmXAmUhiGnANRLswz1k8prXQdICz4K1P2bWYgjZY",
+          "mode": "list",
+          "cachedResultName": "SolarSense CRM",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11zEsmXAmUhiGnANRLswz1k8prXQdICz4K1P2bWYgjZY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11zEsmXAmUhiGnANRLswz1k8prXQdICz4K1P2bWYgjZY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TimeStamp": "={{ $now }}",
+            "Email": "={{ $('Webhook').item.json.body.email }}",
+            "Name": "={{ $('Webhook').item.json.body.name }}",
+            "Pincode": "={{ $('Webhook').item.json.body.pincode }}",
+            "Roof Area": "={{ $('Webhook').item.json.body.roofArea }}",
+            "Monthly Bill": "={{ $('Webhook').item.json.body.bill }}",
+            "Required KW": "={{ $json.output.requiredKW }}",
+            "Recommended KW": "={{ $json.output.recommendedKW }}",
+            "Monthly savings": "={{ $json.output.monthlySavings }}",
+            "Maximum roof KW": "={{ $json.output.maximumRoofKW }}",
+            "System Cost": "={{ $json.output.systemCost }}",
+            "Payback Period": "={{ $json.output.paybackPeriod }}",
+            "Coverage %": "={{ $json.output.consumptionCoverage }}",
+            "Roof Constrained": "={{ $json.output.isRoofConstrained }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "TimeStamp",
+              "displayName": "TimeStamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pincode",
+              "displayName": "Pincode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Roof Area",
+              "displayName": "Roof Area",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Monthly Bill",
+              "displayName": "Monthly Bill",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Required KW",
+              "displayName": "Required KW",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended KW",
+              "displayName": "Recommended KW",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Maximum roof KW",
+              "displayName": "Maximum roof KW",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Monthly savings",
+              "displayName": "Monthly savings",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "System Cost",
+              "displayName": "System Cost",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Payback Period",
+              "displayName": "Payback Period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Coverage %",
+              "displayName": "Coverage %",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Roof Constrained",
+              "displayName": "Roof Constrained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        600,
+        0
+      ],
+      "id": "f240fc87-2bbf-4087-933c-459c7cf83860",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F1whHEO1HLq5Half",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "solarsense-ai-production-5a21.up.railway.app",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.126.0 Chrome/148.0.7778.97 Electron/42.2.0 Safari/537.36",
+            "content-length": "94",
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-US",
+            "content-type": "application/json",
+            "priority": "u=1, i",
+            "sec-ch-ua": "\"Not/A)Brand\";v=\"99\", \"Chromium\";v=\"148\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "103.137.95.27, 152.233.47.69",
+            "x-forwarded-host": "solarsense-ai-production-5a21.up.railway.app",
+            "x-forwarded-proto": "https",
+            "x-railway-edge": "jfk1",
+            "x-railway-request-id": "aceqCzCCQ3idpt4QwUFZXw",
+            "x-real-ip": "103.137.95.27",
+            "x-request-start": "1783705609687"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "name": "check one",
+            "email": "krushna.ds25@gmail.com",
+            "pincode": "431001",
+            "roofArea": "4000.00",
+            "bill": "2000"
+          },
+          "webhookUrl": "https://solarsense-ai-production-5a21.up.railway.app/webhook/solarsense",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "362956d9-6e86-48b0-a285-3cc4344fd0f5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "66894d613aabe3041c57e3a771a8b7a8bcc26c360590ec818a508c3b8a7e05b2"
+  },
+  "id": "KKCg5bBDUieqXzIk",
+  "tags": []
+}
