@@ -86,9 +86,10 @@ document.getElementById("solarForm")
 
         console.log("API Response:", data);
 
-        const result = data.output;
+        const result = data;
 
         // Recommendation details
+        console.log(data);
         document.getElementById("requiredKW").textContent =
             result.requiredKW.toFixed(1);
 
@@ -173,6 +174,7 @@ document.getElementById("solarForm")
         submitButton.innerText = "Generate Solar Report";
 
         document.getElementById("resultContainer").style.display = "block";
+        document.getElementById("emailSuccessMessage").style.display = "block";
 
     }
     catch (error) {
